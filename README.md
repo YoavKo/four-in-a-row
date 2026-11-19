@@ -94,3 +94,7 @@ pyproject.toml        project metadata and the four-in-a-row command
 
 Made by Meir Weizmann and Yoav Kostiner as a final project in
 "Intro to CS" at the HUJI, 2017.
+
+## License
+
+[MIT](LICENSE). The HUJI logo on the About page belongs to the Hebrew University of Jerusalem and is not covered by this license.

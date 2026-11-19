@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Four in a Row with hot-seat, computer and network play"
 readme = "README.md"
 requires-python = ">=3.8"
+license = { text = "MIT" }
 dependencies = []
 
 [project.scripts]
