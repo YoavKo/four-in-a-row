@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import random
+
 # ##### BOARD #####
 STANDARD_BOARD_SIZE = (6, 7)
 # hight is 6, width is 7
@@ -50,7 +54,7 @@ PLAYER_MODE_ERR_MSG = "Unknown player_mode"
 NUM_OF_ARGS_ERR = "Invalid number of arguments"
 BOTTOM_PORT_NUM = 1000
 TOP_PORT_NUM = 65535
-PORT_FORMAT_ERR = "Port is out of range [%s, %s]" % (BOTTOM_PORT_NUM, TOP_PORT_NUM)
+PORT_FORMAT_ERR = f"Port is out of range [{BOTTOM_PORT_NUM}, {TOP_PORT_NUM}]"
 IP_FORMAT_ERR = "IP address inaccurate"
 USAGE_MSG = """-------------------------------------------------------------
 usage: four-in-a-row player_mode port [host_ip]
@@ -61,3 +65,13 @@ usage: four-in-a-row player_mode port [host_ip]
 
 PLAYER_NAMES = {0: "Blue", 1: "Purple"}
 DEFAULT_PORT = 8090
+
+# #### RANDOMNESS ####
+# one shared generator for every random choice in the game (AI moves, who
+# starts), so a game can be reproduced by seeding it (see seed_rng).
+RNG = random.Random()
+
+
+def seed_rng(seed: int | None) -> None:
+    """seeds the shared generator; None reseeds it from system entropy"""
+    RNG.seed(seed)

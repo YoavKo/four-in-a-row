@@ -1,33 +1,42 @@
-from . import config
-from . import board
-import random
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Callable, NoReturn
+
+from . import board, config
+
+if TYPE_CHECKING:
+    from .game import Game
+
+
+class NoMovesError(Exception):
+    """raised when the AI has no legal move to make"""
 
 
 # helper functions
-def no_moves_error():
+def no_moves_error() -> NoReturn:
     """raises the no availible moves exception"""
-    raise Exception(config.NO_MOVES_MSG)
+    raise NoMovesError(config.NO_MOVES_MSG)
 
 
 class AI:
     """holds AI logic, makes moves when called according to the inner
     algorithms"""
 
-    def find_legal_move(self, g, func, timeout=None):
+    def find_legal_move(self, g: Game, func: Callable[[str], None]) -> None:
         """finds the best legal move and executes it
         :param g: the given instance of the game
         :param func: the function to be executied with the chosen move
         """
         chosen_move = self.naive_calc_move(g)
         if chosen_move:
-            """converting chosen move coordinates to string for data transfer
-             compatibility"""
+            # converting chosen move coordinates to string for data transfer
+            # compatibility
             cell = ",".join([str(i) for i in chosen_move])
             func(cell)
         else:
             no_moves_error()
 
-    def naive_calc_move(self, game_obj):
+    def naive_calc_move(self, game_obj: Game) -> tuple[int, int] | None:
         """calculates the best next move accordinng to the priorities:
         (1) next move is immediate win
         (2) next move is blocking immediate win for the opponent
@@ -35,9 +44,9 @@ class AI:
         (1) and (2) are also random choices, if there are more than
         one options"""
 
-        ai_player = game_obj.player
-        if getattr(game_obj, "ai_player", None) is not None:
-            ai_player = game_obj.ai_player
+        ai_player = (
+            game_obj.player if game_obj.ai_player is None else game_obj.ai_player
+        )
         is_ai_player_one = ai_player == game_obj.PLAYER_ONE
         pl2, pl1 = game_obj.PLAYER_TWO, game_obj.PLAYER_ONE
         opponent_player = pl2 if is_ai_player_one else pl1
@@ -60,18 +69,16 @@ class AI:
 
         return self.random_move(moves)
 
-    def random_move(self, list_of_moves):
+    def random_move(
+        self, list_of_moves: list[tuple[int, int]]
+    ) -> tuple[int, int] | None:
         """returns a random choice if the list is not empty otherwise
         returns None"""
+        return config.RNG.choice(list_of_moves) if list_of_moves else None
 
-        if list_of_moves:
-            chosen_move = random.choice(list_of_moves)
-        else:
-            chosen_move = None
-
-        return chosen_move
-
-    def make_legal_move_lst(self, board_obj, board_matrix):
+    def make_legal_move_lst(
+        self, board_obj: board.Board, board_matrix: list[list[int]]
+    ) -> list[tuple[int, int]]:
         """returns a list of all cells that are legal next moves"""
 
         board_width = len(board_matrix[config.FIRST_ROW_INDEX])
@@ -83,7 +90,12 @@ class AI:
 
         return legal_moves
 
-    def cells_near_winning_sequence_suffixes(self, legal_moves, board_matrix, player):
+    def cells_near_winning_sequence_suffixes(
+        self,
+        legal_moves: list[tuple[int, int]],
+        board_matrix: list[list[int]],
+        player: int,
+    ) -> list[tuple[int, int]]:
         """returns list of cells that are legal next moves that cause an
         immediate win, because they are near winning sequence suffixes"""
 

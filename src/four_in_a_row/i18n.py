@@ -1,11 +1,11 @@
-##############################################################
-#   file : i18n.py
-#   description: English / Hebrew texts for the UI.
-#                Tk 8.6 on Linux has no right-to-left support, so Hebrew
-#                text is reordered into its visual order by visual().
-##############################################################
+from __future__ import annotations
 
-LANG = "he"  # the UI opens in Hebrew by default
+# English / Hebrew texts for the UI. Tk 8.6 on Linux has no right-to-left
+# support, so Hebrew text is reordered into its visual order by visual().
+
+# the UI opens in Hebrew by default; kept in a dict so set_lang can change it
+# without a global statement
+_STATE = {"lang": "he"}
 
 STRINGS = {
     "app_title": ("Four in a Row", "ארבע בשורה"),
@@ -93,16 +93,15 @@ _OPENERS = {"(": ")", "[": "]", "{": "}", "<": ">"}
 _MIRROR = {**_OPENERS, **{v: k for k, v in _OPENERS.items()}}
 
 
-def set_lang(lang):
-    global LANG
-    LANG = lang
+def set_lang(lang: str) -> None:
+    _STATE["lang"] = lang
 
 
-def is_rtl():
-    return LANG == "he"
+def is_rtl() -> bool:
+    return _STATE["lang"] == "he"
 
 
-def t(key, *args):
+def t(key: str, *args: object) -> str:
     """the text for key in the current language, ready to show in Tk"""
     index = 1 if is_rtl() else 0
     text = STRINGS[key][index]
@@ -111,17 +110,17 @@ def t(key, *args):
     return visual(text) if (is_rtl() or key == "toggle") else text
 
 
-def raw(key):
+def raw(key: str) -> str:
     """the text for key in the current language, NOT reordered - use it for
     values that are passed as arguments into another t() call"""
     return STRINGS[key][1 if is_rtl() else 0]
 
 
-def _is_ltr_char(ch):
+def _is_ltr_char(ch: str) -> bool:
     return ch.isascii() and ch.isalnum()
 
 
-def _visual_line(line):
+def _visual_line(line: str) -> str:
     """reorders one logical right-to-left line into left-to-right display
     order: Hebrew runs are reversed, Latin / number runs stay as they are"""
     kinds = [
@@ -141,7 +140,9 @@ def _visual_line(line):
             i = j
         else:
             i += 1
-    runs, cur_kind, cur = [], None, ""
+    runs: list[tuple[str | None, str]] = []
+    cur_kind: str | None = None
+    cur = ""
     for ch, kind in zip(line, kinds):
         if kind != cur_kind and cur:
             runs.append((cur_kind, cur))
@@ -151,12 +152,13 @@ def _visual_line(line):
     if cur:
         runs.append((cur_kind, cur))
     out = []
-    for kind, text in reversed(runs):
-        if kind == "R":
-            text = "".join(_MIRROR.get(c, c) for c in reversed(text))
-        out.append(text)
+    for run_kind, run in reversed(runs):
+        if run_kind == "R":
+            out.append("".join(_MIRROR.get(c, c) for c in reversed(run)))
+        else:
+            out.append(run)
     return "".join(out)
 
 
-def visual(text):
+def visual(text: str) -> str:
     return "\n".join(_visual_line(line) for line in text.split("\n"))

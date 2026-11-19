@@ -1,7 +1,5 @@
-from four_in_a_row import board
-from four_in_a_row import config
+from four_in_a_row import board, config
 from four_in_a_row.game import Game
-import random
 
 all_seq = []
 
@@ -25,7 +23,7 @@ for _ in range(100):
     while not game.is_game_over:
         # game.board.print_to_console()
         # user_cmd = int(input()) - 1
-        user_cmd = all_seq[random.randrange(len(all_seq))]
+        user_cmd = all_seq[config.RNG.randrange(len(all_seq))]
         if game.board.find_vacant_cell(user_cmd) is not False:
             game.make_move(user_cmd)
             # game.board.print_to_console()
@@ -37,10 +35,10 @@ for _ in range(100):
 
     game.board.print_to_console()
     print(_)
-    if game.PLAYER_ONE == game.get_winner():
+    if game.get_winner() == game.PLAYER_ONE:
         pl1 += 1
 
-    elif game.PLAYER_TWO == game.get_winner():
+    elif game.get_winner() == game.PLAYER_TWO:
         pl2 += 1
     print("winner", game.get_winner(), "seq_coords", game.winning_seq_coords)
     if game.get_winner() != 2:
