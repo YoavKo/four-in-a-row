@@ -1,32 +1,30 @@
-from .config import (
-    NUM_OF_ARGS_ERR,
-    PLAYERS_MODE_OPTIONS,
-    BOTTOM_PORT_NUM,
-    TOP_PORT_NUM,
-    PLAYER_MODE_ERR_MSG,
-    PORT_FORMAT_ERR,
-    IP_FORMAT_ERR,
-    USAGE_MSG,
-    DEFAULT_PORT,
-)
-from .i18n import raw, set_lang
+from __future__ import annotations
+
 import argparse
 import sys
-from .gui import GUI
-from .game import Game
-from .communicator import Communicator
 from ipaddress import ip_address
+
 from .ai import AI
+from .communicator import Communicator
+from .config import (
+    BOTTOM_PORT_NUM,
+    DEFAULT_PORT,
+    IP_FORMAT_ERR,
+    NUM_OF_ARGS_ERR,
+    PLAYER_MODE_ERR_MSG,
+    PLAYERS_MODE_OPTIONS,
+    PORT_FORMAT_ERR,
+    TOP_PORT_NUM,
+    USAGE_MSG,
+    seed_rng,
+)
+from .game import Game
+from .gui import GUI
+from .i18n import raw, set_lang
+from .menu import App
 
 
-def python_version_validaion():
-    """handle incompatible python's version error"""
-    if sys.version_info < (3, 0):
-        print("Sorry, requires Python 3.x+")
-        sys.exit(1)
-
-
-def input_validation():
+def input_validation() -> tuple[str, str, int, str | None]:
     """reads command line arguments, checks their validation, if needed
     terminates the program and prints proper error messages and a proper usage
     message"""
@@ -44,12 +42,15 @@ def input_validation():
         else:
             player_type = player_mode
 
-        port = sys.argv[2]
-        if not (port.isdigit() and (BOTTOM_PORT_NUM <= int(port) <= TOP_PORT_NUM)):
+        port_text = sys.argv[2]
+        port = 0
+        if not (
+            port_text.isdigit() and (BOTTOM_PORT_NUM <= int(port_text) <= TOP_PORT_NUM)
+        ):
             print(PORT_FORMAT_ERR)
             is_the_input_valid = False
         else:
-            port = int(port)
+            port = int(port_text)
         if len(sys.argv) == 4:
             try:
                 ip = sys.argv[3]
@@ -71,7 +72,7 @@ def input_validation():
         return (player_mode, player_type, port, ip)
 
 
-def run_cli():
+def run_cli() -> None:
     """legacy command line mode: player_mode port [host_ip]"""
     player_mode, player_type, port, ip = input_validation()
 
@@ -88,22 +89,28 @@ def run_cli():
     game.gui = gui
 
     gui.board.draw_board()
-    if player_mode == "server" and player_type == "ai":
+    if player_mode == "server" and game.ai is not None:
         # if the server if ai - execute first move
         game.ai.find_legal_move(game, game.handle_move_event)
 
     gui.root.mainloop()
 
 
-def port_arg(text):
+def port_arg(text: str) -> int:
     """argparse type: a valid port number"""
     if text.isdigit() and BOTTOM_PORT_NUM <= int(text) <= TOP_PORT_NUM:
         return int(text)
     raise argparse.ArgumentTypeError(PORT_FORMAT_ERR)
 
 
-def build_parser():
+def build_parser() -> argparse.ArgumentParser:
     common = argparse.ArgumentParser(add_help=False)
+    common.add_argument(
+        "--seed",
+        type=int,
+        default=argparse.SUPPRESS,
+        help="seed the random number generator (reproducible games)",
+    )
     common.add_argument(
         "--lang",
         choices=["he", "en"],
@@ -157,7 +164,7 @@ def build_parser():
     return parser
 
 
-def print_about():
+def print_about() -> None:
     """project info, printed to the terminal"""
     print(raw("app_title"))
     print("=" * len(raw("app_title")))
@@ -166,22 +173,23 @@ def print_about():
     print(raw("credits"))
 
 
-def main():
-    python_version_validaion()
+def main() -> None:
     # legacy command line mode: human|ai PORT [HOST_IP]
     if len(sys.argv) > 1 and sys.argv[1] in PLAYERS_MODE_OPTIONS:
-        return run_cli()
+        run_cli()
+        return
 
     args = build_parser().parse_args()
+    if hasattr(args, "seed"):
+        seed_rng(args.seed)
     if getattr(args, "lang", None):
         set_lang(args.lang)
     command = args.command
     if command in ("about", "info"):
         if not getattr(args, "lang", None):
             set_lang("en")  # terminals often mishandle right-to-left text
-        return print_about()
-
-    from .menu import App
+        print_about()
+        return
 
     app = App()
     if command == "hotseat":

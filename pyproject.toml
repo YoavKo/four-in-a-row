@@ -22,3 +22,14 @@ four_in_a_row = ["assets/*.png"]
 
 [tool.uv]
 python-preference = "only-system"
+
+[tool.ruff]
+extend-exclude = ["garbage.py", "salvege.py"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["D", "COM812", "T201", "S311", "FBT", "PLR2004", "INP001", "EXE002"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "ERA001", "PERF402"]
+"src/four_in_a_row/i18n.py" = ["RUF001"]  # Hebrew text

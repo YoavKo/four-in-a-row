@@ -1,13 +1,20 @@
+from __future__ import annotations
+
+import contextlib
 import socket
+from typing import TYPE_CHECKING, Callable
+
+if TYPE_CHECKING:
+    import tkinter as tk
 
 
-def get_local_ip():
+def get_local_ip() -> str:
     """best-effort LAN ip address of this machine (what a friend on the same
     network should connect to)"""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.connect(("10.255.255.255", 1))
-        return s.getsockname()[0]
+        return str(s.getsockname()[0])
     except OSError:
         return "127.0.0.1"
     finally:
@@ -31,7 +38,7 @@ class Communicator:
     # not happen if simply set to non blocking), but
     # without interfering the mainloop flow.
 
-    def __init__(self, root, port, ip=None):
+    def __init__(self, root: tk.Tk, port: int, ip: str | None = None) -> None:
         """
         Constructor.
         :param root: the tkinter root (used for accessing the main loop).
@@ -43,13 +50,15 @@ class Communicator:
         self.__root = root
         self.__port = port
         self.__ip = ip
-        self.__socket = None
-        self.__bound_func = None
-        self.__server_socket = None
+        self.__socket: socket.socket | None = None
+        self.__bound_func: Callable[[str], None] | None = None
+        self.__server_socket: socket.socket | None = None
         self.closed = False
         self.__buffer = ""
-        self.on_connected = None  # called once a connection is made
-        self.on_disconnected = None  # called if the other side goes away
+        # called once a connection is made
+        self.on_connected: Callable[[], None] | None = None
+        # called if the other side goes away
+        self.on_disconnected: Callable[[], None] | None = None
         # This means this communicator is a server communicator and is
         # responsible for trying and listening for an incoming connection.
         if self.__ip is None:
@@ -58,24 +67,22 @@ class Communicator:
             self.__server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.__server_socket.bind(("", self.__port))
             self.__server_socket.listen(1)
-            self.__server_socket.setblocking(0)  # non blocking.
+            self.__server_socket.setblocking(False)  # non blocking.
 
     @property
-    def address(self):
-        return "%s:%s" % (self.__ip, self.__port)
+    def address(self) -> str:
+        return f"{self.__ip}:{self.__port}"
 
-    def close(self):
+    def close(self) -> None:
         """stops all polling and closes the sockets"""
         self.closed = True
         for sock in (self.__socket, self.__server_socket):
             if sock:
-                try:
+                with contextlib.suppress(OSError):
                     sock.close()
-                except OSError:
-                    pass
         self.__socket = self.__server_socket = None
 
-    def connect(self):
+    def connect(self) -> None:
         """
         Has to be invoked before any message sending and receiving can be
         accomplished. Uses the tkinter main loop to constantly listen on a
@@ -89,18 +96,18 @@ class Communicator:
             # This is the server communicator, try and accept connections.
             if self.__server_socket is not None:
                 self.__socket, _ = self.__server_socket.accept()
-                self.__socket.setblocking(0)
+                self.__socket.setblocking(False)
                 self.__server_socket.close()
             # This is the client communicator, try and connect (quickly).
             else:
                 self.__socket = socket.socket()
                 self.__socket.settimeout(self.CONNECT_TIMEOUT)
                 self.__socket.connect((self.__ip, self.__port))
-                self.__socket.setblocking(0)
+                self.__socket.setblocking(False)
             if self.on_connected:
                 self.on_connected()
             self.__get_message()
-        except socket.error:
+        except OSError:
             # Always close the socket if created, then make it none (this
             # way it is evident that a connection was not yet established).
             if self.__socket:
@@ -109,7 +116,7 @@ class Communicator:
             # Try again in a given interval.
             self.__root.after(self.WAIT_PERIOD, self.connect)
 
-    def bind_action_to_message(self, func):
+    def bind_action_to_message(self, func: Callable[[str], None]) -> None:
         """
         Binds a specific function to the event of receiving a message.
         :param func: the function.
@@ -117,7 +124,7 @@ class Communicator:
         """
         self.__bound_func = func
 
-    def send_message(self, message):
+    def send_message(self, message: object) -> None:
         """
         Sends a message via the socket (if a connection is established).
         If the socket is not yet connected, does nothing (no retry).
@@ -129,19 +136,19 @@ class Communicator:
         if not self.is_connected():
             self.__root.after(self.WAIT_PERIOD, lambda: self.send_message(message))
             return
-        try:
+        if self.__socket is None:
+            return
+        with contextlib.suppress(OSError):
             self.__socket.send((str(message) + "\n").encode())
-        except OSError:
-            pass
 
-    def is_connected(self):
+    def is_connected(self) -> bool:
         """
         Returns true once a connection has been established.
         :return: true if a connection is established, else false.
         """
         return self.__socket is not None
 
-    def __get_message(self):
+    def __get_message(self) -> None:
         """
         Upon regular intervals, try and receive a message from the connection
         socket (if established). If the message is empty, it means the remote
@@ -152,7 +159,7 @@ class Communicator:
         """
         if self.closed:
             return
-        if self.is_connected():
+        if self.__socket is not None:
             try:
                 message = self.__socket.recv(Communicator.BUFFER_SIZE).decode()
                 # Don't register again - the remote host is closed.
@@ -171,7 +178,7 @@ class Communicator:
                 return
         self.__root.after(self.WAIT_PERIOD, self.__get_message)
 
-    def __disconnected(self):
+    def __disconnected(self) -> None:
         self.close()
         if self.on_disconnected:
             self.on_disconnected()

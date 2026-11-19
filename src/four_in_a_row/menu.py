@@ -1,33 +1,31 @@
-##############################################################
-#   file : menu.py
-#   description: main menu UI - hot-seat, vs computer, network play
-#                (host / join) and an about page. Run via the four-in-a-row command
-##############################################################
+# Main menu UI for hot-seat, vs computer and network play (host or join) plus
+# an about page. Run via the four-in-a-row command.
 
-import os
-import random
+from __future__ import annotations
+
 import socket
 import tkinter as tk
 import tkinter.font as tkfont
-from tkinter import messagebox
 from ipaddress import ip_address
+from pathlib import Path
+from tkinter import messagebox
+from typing import Callable, Literal
 
+from .ai import AI
+from .communicator import Communicator
 from .config import (
     BOTTOM_PORT_NUM,
-    TOP_PORT_NUM,
     DEFAULT_PORT,
     PLAYERS_COLORS,
+    RNG,
+    TOP_PORT_NUM,
     WIN_PLAYERS_COLORS,
 )
 from .game import Game
 from .gui import GUI
-from .ai import AI
-from .communicator import Communicator
-from .i18n import t, raw, set_lang, is_rtl
+from .i18n import is_rtl, raw, set_lang, t
 
-LOGO_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "assets", "huji_logo.png"
-)
+LOGO_PATH = Path(__file__).resolve().parent / "assets" / "huji_logo.png"
 
 ICON_SIZE = 36
 ICON_WIDTH = 110
@@ -36,13 +34,13 @@ BLUE, PURPLE = PLAYERS_COLORS[0], PLAYERS_COLORS[1]
 CLOUD_COLOR = "#e8f1fb"
 
 
-def draw_box(c, x1, x2):
+def draw_box(c: tk.Canvas, x1: int, x2: int) -> None:
     c.create_rectangle(
         x1, 1, x2, ICON_SIZE - 1, fill="white", outline="gray30", width=2
     )
 
 
-def draw_person(c, cx, color, dy=3):
+def draw_person(c: tk.Canvas, cx: int, color: str, dy: int = 3) -> None:
     c.create_arc(
         cx - 8,
         18 + dy,
@@ -56,7 +54,7 @@ def draw_person(c, cx, color, dy=3):
     c.create_oval(cx - 5, 5 + dy, cx + 5, 15 + dy, fill=color, outline="black")
 
 
-def draw_robot(c, cx, dy=3):
+def draw_robot(c: tk.Canvas, cx: int, dy: int = 3) -> None:
     c.create_line(cx, 2 + dy, cx, 7 + dy, width=2)
     c.create_oval(cx - 2, dy, cx + 2, 4 + dy, fill="red", outline="")
     c.create_rectangle(
@@ -70,19 +68,19 @@ def draw_robot(c, cx, dy=3):
     )
 
 
-def icon_hotseat(c):
+def icon_hotseat(c: tk.Canvas) -> None:
     draw_box(c, MID - 32, MID + 32)
     draw_person(c, MID - 12, BLUE)
     draw_person(c, MID + 12, PURPLE)
 
 
-def icon_computer(c):
+def icon_computer(c: tk.Canvas) -> None:
     draw_box(c, MID - 32, MID + 32)
     draw_person(c, MID - 12, BLUE)
     draw_robot(c, MID + 12)
 
 
-def icon_network(c):
+def icon_network(c: tk.Canvas) -> None:
     draw_box(c, 1, 27)
     draw_person(c, 14, BLUE)
     draw_box(c, ICON_WIDTH - 27, ICON_WIDTH - 1)
@@ -106,13 +104,13 @@ def icon_network(c):
     c.create_rectangle(MID - 11, 20, MID + 11, 27, fill=CLOUD_COLOR, outline="")
 
 
-def icon_about(c):
+def icon_about(c: tk.Canvas) -> None:
     c.create_oval(MID - 14, 3, MID + 14, 31, fill="#4a90d9", outline="black", width=2)
     c.create_oval(MID - 2, 8, MID + 2, 12, fill="white", outline="")
     c.create_rectangle(MID - 2, 14, MID + 2, 26, fill="white", outline="")
 
 
-def icon_quit(c):
+def icon_quit(c: tk.Canvas) -> None:
     c.create_oval(MID - 14, 3, MID + 14, 31, fill="#d9534f", outline="black", width=2)
     c.create_line(MID - 6, 11, MID + 6, 23, width=4, fill="white", capstyle="round")
     c.create_line(MID + 6, 11, MID - 6, 23, width=4, fill="white", capstyle="round")
@@ -121,7 +119,7 @@ def icon_quit(c):
 FLAG_W, FLAG_H = 48, 32
 
 
-def draw_flag_il(c):
+def draw_flag_il(c: tk.Canvas) -> None:
     c.create_rectangle(0, 0, FLAG_W, FLAG_H, fill="white", outline="")
     for y in (3, 25):
         c.create_rectangle(0, y, FLAG_W, y + 4, fill="#0038b8", outline="")
@@ -141,7 +139,7 @@ def draw_flag_il(c):
         )
 
 
-def draw_flag_uk(c):
+def draw_flag_uk(c: tk.Canvas) -> None:
     c.create_rectangle(0, 0, FLAG_W, FLAG_H, fill="#012169", outline="")
     for x1, y1, x2, y2 in ((0, 0, FLAG_W, FLAG_H), (0, FLAG_H, FLAG_W, 0)):
         c.create_line(x1, y1, x2, y2, fill="white", width=6)
@@ -153,21 +151,21 @@ def draw_flag_uk(c):
 
 
 class App:
-    def __init__(self):
+    def __init__(self) -> None:
         self.root = tk.Tk()
         self.root.title("Four in a Row")
         self.root.resizable(False, False)
         self.container = tk.Frame(self.root, padx=30, pady=20)
         self.container.pack()
-        self.com = None
-        self.game = None
+        self.com: Communicator | None = None
+        self.game: Game | None = None
         self.show_main_menu()
 
-    def run(self):
+    def run(self) -> None:
         self.root.mainloop()
 
     # ---------- helpers ----------
-    def cleanup(self):
+    def cleanup(self) -> None:
         if self.com:
             self.com.close()
             self.com = None
@@ -175,26 +173,26 @@ class App:
             self.game.closed = True
             self.game = None
 
-    def clear(self):
+    def clear(self) -> None:
         self.cleanup()
         for w in self.container.winfo_children():
             w.destroy()
 
-    def title(self, text, size=22):
+    def title(self, text: str, size: int = 22) -> None:
         tk.Label(self.container, text=text, font=("Helvetica", size, "bold")).pack(
             pady=(0, 15)
         )
 
     @staticmethod
-    def side():
+    def side() -> Literal["left"]:
         """pack side for the first element of a row - the layout is the same
         in both languages, so toggling the language never moves anything"""
         return "left"
 
-    def lang_toggle(self, redraw):
+    def lang_toggle(self, redraw: Callable[[], None]) -> None:
         """small English / Hebrew switch at the top of a screen"""
 
-        def toggle():
+        def toggle() -> None:
             set_lang("en" if is_rtl() else "he")
             self.root.title(raw("app_title"))
             redraw()
@@ -209,10 +207,10 @@ class App:
             cursor="hand2",
         )
         (draw_flag_uk if is_rtl() else draw_flag_il)(flag)
-        flag.bind("<Button-1>", lambda e: toggle())
+        flag.bind("<Button-1>", lambda _e: toggle())
         flag.pack(anchor="e", pady=(0, 6))
 
-    def fancy_title(self):
+    def fancy_title(self) -> None:
         """the main-menu logo: the game name in styled colored letters"""
         width, height = 380, 76
         c = tk.Canvas(
@@ -250,7 +248,13 @@ class App:
             fill="gray40",
         )
 
-    def button(self, text, command, width=28, icon=None):
+    def button(
+        self,
+        text: str,
+        command: Callable[[], None],
+        width: int = 28,
+        icon: Callable[[tk.Canvas], None] | None = None,
+    ) -> tk.Button:
         if icon is None:
             b = tk.Button(
                 self.container, text=text, command=command, width=width, pady=6
@@ -269,13 +273,13 @@ class App:
         )
         canvas.pack(side=self.side(), padx=(0, 4))
         icon(canvas)
-        canvas.bind("<Button-1>", lambda e: command())
+        canvas.bind("<Button-1>", lambda _e: command())
         b = tk.Button(row, text=text, command=command, width=width, pady=6)
         b.pack(side=self.side())
         return b
 
     # ---------- screens ----------
-    def show_main_menu(self):
+    def show_main_menu(self) -> None:
         self.clear()
         self.root.title(raw("app_title"))
         self.lang_toggle(self.show_main_menu)
@@ -290,7 +294,7 @@ class App:
         self.button(t("menu_about"), self.show_about, icon=icon_about)
         self.button(t("menu_quit"), self.root.destroy, icon=icon_quit)
 
-    def show_network_menu(self):
+    def show_network_menu(self) -> None:
         self.clear()
         self.lang_toggle(self.show_network_menu)
         self.title(t("net_title"))
@@ -298,16 +302,16 @@ class App:
         self.button(t("net_join"), self.show_join)
         self.button(t("back"), self.show_main_menu)
 
-    def show_about(self):
+    def show_about(self) -> None:
         self.clear()
         self.lang_toggle(self.show_about)
         self.title(t("about_title"))
-        justify = "right" if is_rtl() else "left"
+        justify: Literal["left", "right"] = "right" if is_rtl() else "left"
         tk.Label(self.container, text=t("about_text"), justify=justify).pack(
             anchor="e" if is_rtl() else "w"
         )
         try:
-            self.logo_img = tk.PhotoImage(file=LOGO_PATH)
+            self.logo_img = tk.PhotoImage(file=str(LOGO_PATH))
             tk.Label(self.container, image=self.logo_img).pack(pady=(14, 4))
         except tk.TclError:
             pass
@@ -320,7 +324,7 @@ class App:
             command=self.show_main_menu,
         ).pack(pady=(10, 0))
 
-    def _port_entry(self, port=DEFAULT_PORT):
+    def _port_entry(self, port: int = DEFAULT_PORT) -> tk.StringVar:
         row = tk.Frame(self.container)
         row.pack(pady=4)
         tk.Label(row, text=t("port")).pack(side=self.side())
@@ -329,7 +333,7 @@ class App:
         return port_var
 
     @staticmethod
-    def _parse_port(text):
+    def _parse_port(text: str) -> int | None:
         text = text.strip()
         if text.isdigit() and BOTTOM_PORT_NUM <= int(text) <= TOP_PORT_NUM:
             return int(text)
@@ -338,7 +342,7 @@ class App:
         )
         return None
 
-    def show_host(self, port=DEFAULT_PORT, auto=False):
+    def show_host(self, port: int = DEFAULT_PORT, auto: bool = False) -> None:
         """auto=True starts hosting right away (used by the command line)"""
         self.clear()
         self.title(t("host_title"))
@@ -346,7 +350,7 @@ class App:
         status = tk.Label(self.container, text="", justify="center")
         addr_var = tk.StringVar()
 
-        def start():
+        def start() -> None:
             port = self._parse_port(port_var.get())
             if port is None:
                 return
@@ -377,7 +381,9 @@ class App:
         if auto:
             self.root.after(100, start)
 
-    def show_join(self, host="", port=DEFAULT_PORT, auto=False):
+    def show_join(
+        self, host: str = "", port: int = DEFAULT_PORT, auto: bool = False
+    ) -> None:
         """auto=True connects right away (used by the command line)"""
         self.clear()
         self.title(t("join_title"))
@@ -389,7 +395,7 @@ class App:
         port_var = self._port_entry(port)
         status = tk.Label(self.container, text="")
 
-        def connect():
+        def connect() -> None:
             host = ip_var.get().strip()
             port_text = port_var.get()
             if ":" in host:  # allow pasting "ip:port"
@@ -420,7 +426,12 @@ class App:
             self.root.after(100, connect)
 
     # ---------- game ----------
-    def start_game(self, kind, com=None, mode="server"):
+    def start_game(
+        self,
+        kind: str,
+        com: Communicator | None = None,
+        mode: str = "server",
+    ) -> None:
         # the connection is handed over to the game, so don't let clear()
         # close it as part of leaving the host/join screen
         self.com = None
@@ -453,7 +464,7 @@ class App:
         game.gui = gui
         game.communicator = com
 
-        def update_status():
+        def update_status() -> None:
             if game.is_game_over:
                 text = game.end_message()
             elif kind == "hotseat":
@@ -486,18 +497,18 @@ class App:
 
         # who starts is random; the host decides and tells the client
         if mode == "server" or not com:
-            game.current_player = random.choice([Game.PLAYER_ONE, Game.PLAYER_TWO])
+            game.current_player = RNG.choice([Game.PLAYER_ONE, Game.PLAYER_TWO])
             if com:
-                com.send_message("first:%d" % game.current_player)
+                com.send_message(f"first:{game.current_player}")
 
         gui.board.draw_board()
         update_status()
         if kind == "vs_ai" and game.current_player == game.ai_player:
-            self.root.after(600, game._ai_move)
+            self.root.after(600, game.ai_move)
         tk.Button(
             self.container, text=t("back_to_menu"), pady=4, command=self.show_main_menu
         ).pack(pady=(10, 0))
 
-    def opponent_left(self):
+    def opponent_left(self) -> None:
         messagebox.showinfo(raw("disconnected"), t("opp_left"))
         self.show_main_menu()
