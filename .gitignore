@@ -1,0 +1,6 @@
+__pycache__/
+*.swp
+.venv/
+*.egg-info/
+garbage.py
+salvege.py

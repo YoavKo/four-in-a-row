@@ -1,0 +1,23 @@
+[project]
+name = "four-in-a-row"
+version = "0.1.0"
+description = "Four in a Row with hot-seat, computer and network play"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = []
+
+[project.scripts]
+four-in-a-row = "four_in_a_row.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+four_in_a_row = ["assets/*.png"]
+
+[tool.uv]
+python-preference = "only-system"
